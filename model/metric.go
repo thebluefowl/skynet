@@ -63,13 +63,13 @@ func (m *MetricStore) Create(metric *Metric) error {
 }
 
 var MetricViewMap = map[string]string{
-	"time_to_first_byte": "time_to_first_byte_hourly_percentiles",
-	// "first_paint":              "first_paint_hourly_percentiles",
-	// "first_contentful_paint":   "first_contentful_paint_hourly_percentiles",
-	// "first_input_delay":        "first_input_delay_hourly_percentiles",
-	// "largest_contentful_paint": "largest_contentful_paint_hourly_percentiles",
-	// "cumu_layout_shift":        "cumu_layout_shift_hourly_percentiles",
-	// "total_blocking_time":      "total_blocking_time_hourly_percentiles",
+	"time_to_first_byte":       "time_to_first_byte_hourly_percentiles",
+	"first_paint":              "first_paint_hourly_percentiles",
+	"first_contentful_paint":   "first_contentful_paint_hourly_percentiles",
+	"first_input_delay":        "first_input_delay_hourly_percentiles",
+	"largest_contentful_paint": "largest_contentful_paint_hourly_percentiles",
+	"cumu_layout_shift":        "cumu_layout_shift_hourly_percentiles",
+	"total_blocking_time":      "total_blocking_time_hourly_percentiles",
 }
 
 // Overview
@@ -102,6 +102,7 @@ func (m *MetricStore) GetOverview(field string) (*OverviewResponse, error) {
 	overviewResponse := OverviewResponse{
 		Metrics: []MetricItem{},
 	}
+
 	for metric_name, view := range MetricViewMap {
 		query := generateOverviewQueryForView(view)
 		rows, err := m.db.Query(query)
@@ -111,11 +112,8 @@ func (m *MetricStore) GetOverview(field string) (*OverviewResponse, error) {
 		}
 		defer rows.Close()
 		values := []float64{}
-		i := 0
+
 		for rows.Next() {
-			if i > 1 {
-				break
-			}
 			var bucket time.Time
 			var p75 interface{}
 			err := rows.Scan(&bucket, &p75)
@@ -128,7 +126,7 @@ func (m *MetricStore) GetOverview(field string) (*OverviewResponse, error) {
 			} else {
 				values = append(values, 0)
 			}
-			i++
+
 		}
 		if len(values) == 0 {
 			values = []float64{0, 0}
@@ -143,9 +141,8 @@ func (m *MetricStore) GetOverview(field string) (*OverviewResponse, error) {
 			IsPositive: false,
 		}
 		overviewResponse.Metrics = append(overviewResponse.Metrics, responseItem)
-		return &overviewResponse, nil
 	}
-	return nil, nil
+	return &overviewResponse, nil
 }
 
 // Trends
@@ -206,7 +203,7 @@ GROUP BY 1, 2, 3
 ORDER BY 1 DESC
 LIMIT 2`
 
-var Browsers = []string{"chrome"}
+var Browsers = []string{"chrome", "brave", "chrome", "edge", "firefox", "safari", "samsung", "opera"}
 
 func (m *MetricStore) GetWebBrowserStats() (map[string][]MetricItem, error) {
 	response := map[string][]MetricItem{}
@@ -275,7 +272,7 @@ GROUP BY 1, 2, 3
 ORDER BY 1 DESC
 LIMIT 2`
 
-var MobileBrowsers = []string{"chrome"}
+var MobileBrowsers = []string{"chrome", "brave", "chrome", "edge", "firefox", "safari", "samsung", "opera"}
 
 func (m *MetricStore) GetMobileStats() (map[string][]MetricItem, error) {
 	response := map[string][]MetricItem{}

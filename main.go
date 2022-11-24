@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/thebluefowl/skynet/controller"
 	"github.com/thebluefowl/skynet/db"
 	"github.com/thebluefowl/skynet/model"
@@ -14,6 +15,7 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(middleware.CORS())
 
 	store := model.NewMetricStore()
 	overviewController := controller.NewOverviewController(
