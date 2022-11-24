@@ -9,16 +9,19 @@ import (
 )
 
 const QueryCreateHypertable = `SELECT create_hypertable('metrics', 'timestamp');`
-const QueryCreateMaterializedViewBase = `CREATE MATERIALIZED VIEW %s
+const QueryCreateMaterializedViewpBase = `CREATE MATERIALIZED VIEW %s
 WITH (timescaledb.continuous)
 AS SELECT
     time_bucket('1 day'::interval, timestamp) as bucket,
     percentile_agg(%s) as pct_agg,
 	browser_name,
-	is_mobile_device
+	country,
+	location_latitude,
+	location_longitude,
+	is_mobile_device,
+	route
 FROM metrics
-GROUP BY 1, browser_name, is_mobile_device;
-`
+GROUP BY 1, browser_name, is_mobile_device, route, country, location_latitude, location_longitude`
 
 func CreateTables() {
 	db, err := db.GetDB()
@@ -39,7 +42,7 @@ func CreateTables() {
 
 	for metric_name, view := range model.MetricViewMap {
 		log.Printf("creating materialized view")
-		_, err = conn.Exec(fmt.Sprintf(QueryCreateMaterializedViewBase, view, metric_name))
+		_, err = conn.Exec(fmt.Sprintf(QueryCreateMaterializedViewpBase, view, metric_name))
 		if err != nil {
 			fmt.Println(err)
 		}

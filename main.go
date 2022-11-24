@@ -5,12 +5,17 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/thebluefowl/skynet/controller"
 	"github.com/thebluefowl/skynet/db"
+	"github.com/thebluefowl/skynet/geo"
 	"github.com/thebluefowl/skynet/model"
 )
 
 func main() {
 	_, err := db.GetDB()
 	if err != nil {
+		panic(err)
+	}
+
+	if err := geo.LoadCountryToLatLOng(); err != nil {
 		panic(err)
 	}
 

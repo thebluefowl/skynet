@@ -45,10 +45,13 @@ func main() {
 	startTime := time.Now().Add((-24 * 30) * time.Hour)
 	endTime := time.Now()
 
+	routes := []string{"/foo", "/bar", "/baz", "/qux", "/quux", "/corge", "/grault", "/garply", "/waldo", "/fred", "/plugh", "/xyzzy", "/thud"}
+
 	for startTime.Before(endTime) {
 		//generate a random number between 1 and 60
 		d := rand.Intn(60) + 1
 		randomBrowser := browsers[rand.Intn(len(browsers))]
+		randomRoute := routes[rand.Intn(len(routes))]
 		startTime = startTime.Add(time.Duration(d) * time.Minute)
 		request := controller.CreateMetricRequest{
 			Metrics: controller.RequestMetric{
@@ -62,8 +65,8 @@ func main() {
 			},
 
 			Metadata: controller.Metadata{
-				BrowserName: randomBrowser,
-				// random boolean
+				BrowserName:    randomBrowser,
+				Route:          randomRoute,
 				IsMobileDevice: rand.Intn(2) == 1,
 			},
 			Timestamp: &startTime,
@@ -74,10 +77,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		_, err = http.Post("http://localhost:1323/metrics", "application/json", bytes.NewBuffer(data))
+
+		resp, err := http.Post("https://3097eb36c88d.in.ngrok.io/metrics", "application/json", bytes.NewBuffer(data))
 		if err != nil {
+			panic(err)
 		}
-		fmt.Println(request.Metadata.BrowserName)
+		fmt.Println(resp.StatusCode)
 
 	}
 

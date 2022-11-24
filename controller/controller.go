@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/thebluefowl/skynet/geo"
 	"github.com/thebluefowl/skynet/model"
 )
 
@@ -26,6 +27,8 @@ func (c *Controller) Register() {
 	c.e.GET("/trends", c.GetTrends)
 	c.e.GET("/stats/web", c.GetBrowserStats)
 	c.e.GET("/stats/mobile", c.GetMobileStats)
+	c.e.GET("/stats/routes", c.GetRouteStats)
+	c.e.GET("/stats/countries", c.GetCountryStats)
 }
 
 type RequestMetric struct {
@@ -46,6 +49,7 @@ type Metadata struct {
 	DeviceMemory        string `json:"device_memory"`
 	HardwareConcurrency string `json:"hardware_concurrency"`
 	ServiceWorkerStatus string `json:"service_worker_status"`
+	Route               string `json:"route"`
 	IsLowEndDevice      bool   `json:"is_low_end_device"`
 	IsMobileDevice      bool   `json:"is_mobile_device"`
 	IsLowEndExperience  bool   `json:"is_low_end_experience"`
@@ -62,6 +66,15 @@ func (ctrlr *Controller) Create(c echo.Context) error {
 	if err := c.Bind(request); err != nil {
 		return err
 	}
+
+	ip := c.RealIP()
+	fmt.Println(ip)
+	country, lat, long, err := geo.GetCountry(ip)
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(400, err)
+	}
+
 	metric := &model.Metric{
 		TimeToFirstByte:        request.Metrics.TimeToFirstByte,
 		FirstPaint:             request.Metrics.FirstPaint,
@@ -77,6 +90,10 @@ func (ctrlr *Controller) Create(c echo.Context) error {
 		DeviceMemory:           request.Metadata.DeviceMemory,
 		HardwareConcurrency:    request.Metadata.HardwareConcurrency,
 		ServiceWorkerStatus:    request.Metadata.ServiceWorkerStatus,
+		LocationLatitude:       lat,
+		LocationLongitude:      long,
+		Country:                country,
+		Route:                  request.Metadata.Route,
 		IsLowEndDevice:         request.Metadata.IsLowEndDevice,
 		IsMobileDevice:         request.Metadata.IsMobileDevice,
 		IsLowEndExperience:     request.Metadata.IsLowEndExperience,
@@ -116,6 +133,22 @@ func (ctrlr *Controller) GetBrowserStats(c echo.Context) error {
 
 func (ctrlr *Controller) GetMobileStats(c echo.Context) error {
 	response, err := ctrlr.m.GetMobileStats()
+	if err != nil {
+		fmt.Println(err)
+	}
+	return c.JSON(200, response)
+}
+
+func (ctrlr *Controller) GetRouteStats(c echo.Context) error {
+	response, err := ctrlr.m.GetRouteStats()
+	if err != nil {
+		fmt.Println(err)
+	}
+	return c.JSON(200, response)
+}
+
+func (ctrlr *Controller) GetCountryStats(c echo.Context) error {
+	response, err := ctrlr.m.GetCountryStats()
 	if err != nil {
 		fmt.Println(err)
 	}

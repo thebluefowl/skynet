@@ -20,16 +20,20 @@ type Metric struct {
 	TotalBlockingTime      float64 `gorm:"column:total_blocking_time" json:"total_blocking_time"`
 
 	//Filters
-	BrowserName         string `gorm:"type:varchar(50);column:browser_name" json:"browser_name"`
-	BrowserVersion      string `gorm:"type:varchar(50);column:browser_version" json:"browser_version"`
-	OperatingSystem     string `gorm:"type:varchar(50);column:operating_system" json:"operating_system"`
-	NetworkInformation  string `gorm:"type:varchar(50);column:network_information" json:"network_information"`
-	DeviceMemory        string `gorm:"type:varchar(50);column:device_memory" json:"device_memory"`
-	HardwareConcurrency string `gorm:"type:varchar(50);column:hardware_concurrency" json:"hardware_concurrency"`
-	ServiceWorkerStatus string `gorm:"type:varchar(50);column:service_worker_status" json:"service_worker_status"`
-	IsLowEndDevice      bool   `gorm:"column:is_low_end_device" json:"is_low_end_device"`
-	IsMobileDevice      bool   `gorm:"column:is_mobile_device" json:"is_mobile_device"`
-	IsLowEndExperience  bool   `gorm:"column:is_low_end_experience" json:"is_low_end_experience"`
+	BrowserName         string  `gorm:"type:varchar(50);column:browser_name" json:"browser_name"`
+	BrowserVersion      string  `gorm:"type:varchar(50);column:browser_version" json:"browser_version"`
+	OperatingSystem     string  `gorm:"type:varchar(50);column:operating_system" json:"operating_system"`
+	NetworkInformation  string  `gorm:"type:varchar(50);column:network_information" json:"network_information"`
+	DeviceMemory        string  `gorm:"type:varchar(50);column:device_memory" json:"device_memory"`
+	HardwareConcurrency string  `gorm:"type:varchar(50);column:hardware_concurrency" json:"hardware_concurrency"`
+	ServiceWorkerStatus string  `gorm:"type:varchar(50);column:service_worker_status" json:"service_worker_status"`
+	Route               string  `gorm:"type:varchar(256);column:route" json:"route"`
+	LocationLatitude    float64 `gorm:"column:location_latitude" json:"location_latitude"`
+	LocationLongitude   float64 `gorm:"column:location_longitude" json:"location_longitude"`
+	Country             string  `gorm:"type:varchar(256);column:country" json:"country"`
+	IsLowEndDevice      bool    `gorm:"column:is_low_end_device" json:"is_low_end_device"`
+	IsMobileDevice      bool    `gorm:"column:is_mobile_device" json:"is_mobile_device"`
+	IsLowEndExperience  bool    `gorm:"column:is_low_end_experience" json:"is_low_end_experience"`
 
 	// Timestamp
 	Timestamp *time.Time `gorm:"column:timestamp;not null" json:"timestamp"`
@@ -59,6 +63,7 @@ func NewMetricStore() *MetricStore {
 }
 
 func (m *MetricStore) Create(metric *Metric) error {
+	// weighted average of all metrics
 	return m.gorm.Create(metric).Error
 }
 
@@ -328,3 +333,109 @@ func (m *MetricStore) GetMobileStats() (map[string][]MetricItem, error) {
 	}
 	return response, nil
 }
+
+const routeStatsQuery = `SELECT
+route,
+locf(approx_percentile(0.75, rollup(pct_agg))) as p75
+FROM %s
+WHERE bucket >= now() - '1 day'::interval AND bucket < now()
+GROUP BY 1
+ORDER BY 2 DESC`
+
+// For every metric, get the top n worst performing routes.
+func (m *MetricStore) GetRouteStats() (map[string][]map[string]string, error) {
+	response := map[string][]map[string]string{}
+	for metric_name, view := range MetricViewMap {
+		query := fmt.Sprintf(routeStatsQuery, view)
+		rows, err := m.db.Query(query)
+		if err != nil {
+			log.Error("failed to query database")
+			panic(err)
+		}
+		defer rows.Close()
+
+		routes := []map[string]string{}
+		for rows.Next() {
+			var route string
+			var p75 interface{}
+			var r map[string]string
+			err := rows.Scan(&route, &p75)
+			if err != nil {
+				log.Error("failed to scan row")
+				panic(err)
+			}
+			if p75 != nil {
+				r = map[string]string{
+					"route": route,
+					"value": fmt.Sprintf("%.2f", p75.(float64)),
+				}
+				routes = append(routes, r)
+			}
+		}
+		response[metric_name] = routes
+	}
+	return response, nil
+}
+
+type CountryStat struct {
+	Lat    float64 `json:"lat"`
+	Long   float64 `json:"long"`
+	Metric string  `json:"metric"`
+	Value  float64 `json:"value"`
+}
+
+const countryStatsQuery = `SELECT
+location_latitude,
+location_longitude,
+locf(approx_percentile(0.75, rollup(pct_agg))) as p75
+FROM %s
+WHERE bucket >= now() - '1 day'::interval AND bucket < now()
+GROUP BY 1, 2`
+
+func (m *MetricStore) GetCountryStats() (map[string][]CountryStat, error) {
+	response := map[string][]CountryStat{}
+	for metric_name, view := range MetricViewMap {
+		query := fmt.Sprintf(countryStatsQuery, view)
+		rows, err := m.db.Query(query)
+		if err != nil {
+			log.Error("failed to query database")
+			panic(err)
+		}
+		defer rows.Close()
+
+		countries := []CountryStat{}
+		for rows.Next() {
+			var lat float64
+			var long float64
+			var p75 interface{}
+			err := rows.Scan(&lat, &long, &p75)
+			if err != nil {
+				log.Error("failed to scan row")
+				panic(err)
+			}
+			if p75 != nil {
+				c := CountryStat{
+					Lat:    lat,
+					Long:   long,
+					Metric: metric_name,
+					Value:  p75.(float64),
+				}
+				countries = append(countries, c)
+			}
+		}
+		response[metric_name] = countries
+	}
+	return response, nil
+}
+
+/*
+SELECT
+country,
+location_latitude,
+location_longitude,
+locf(approx_percentile(0.75, rollup(pct_agg))) as p75
+FROM time_to_first_byte_hourly_percentiles
+WHERE bucket >= now() - '1 day'::interval AND bucket < now()
+GROUP BY 1, 2, 3
+
+*/
