@@ -15,16 +15,9 @@ AS SELECT
     time_bucket('1 day'::interval, timestamp) as bucket,
     percentile_agg(%s) as pct_agg,
 	browser_name,
-	browser_version,
-	operating_system,
-	network_information,
-	device_memory,
-	hardware_concurrency,
-	service_worker_status,
-	is_low_end_device,
-	is_low_end_experience
+	is_mobile_device
 FROM metrics
-GROUP BY 1, browser_name, browser_version, operating_system, network_information, device_memory, hardware_concurrency, service_worker_status, is_low_end_device, is_low_end_experience;
+GROUP BY 1, browser_name, is_mobile_device;
 `
 
 func CreateTables() {
@@ -33,7 +26,7 @@ func CreateTables() {
 		panic(err)
 	}
 
-	db.AutoMigrate(&model.Metric{})
+	db.DB.AutoMigrate(&model.Metric{})
 	conn, err := db.GetSQLConn()
 	if err != nil {
 		panic(err)

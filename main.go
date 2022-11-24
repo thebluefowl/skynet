@@ -16,7 +16,6 @@ func main() {
 	e := echo.New()
 
 	store := model.NewMetricStore()
-	store.GetOverview("time_to_first_byte")
 	overviewController := controller.NewOverviewController(
 		e,
 		store,

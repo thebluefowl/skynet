@@ -10,7 +10,7 @@ import (
 var db *DB
 
 type DB struct {
-	*gorm.DB
+	DB *gorm.DB
 }
 
 func GetDB() (*DB, error) {
@@ -24,7 +24,7 @@ func GetDB() (*DB, error) {
 		return nil, err
 	}
 
-	db = &DB{_db}
+	db = &DB{DB: _db}
 	return db, nil
 }
 
