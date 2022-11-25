@@ -53,6 +53,7 @@ type Metadata struct {
 	IsLowEndDevice      bool   `json:"is_low_end_device"`
 	IsMobileDevice      bool   `json:"is_mobile_device"`
 	IsLowEndExperience  bool   `json:"is_low_end_experience"`
+	IPAddress           string `json:"ip_address"`
 }
 
 type CreateMetricRequest struct {
@@ -68,6 +69,10 @@ func (ctrlr *Controller) Create(c echo.Context) error {
 	}
 
 	ip := c.RealIP()
+	if request.Metadata.IPAddress != "" {
+		ip = request.Metadata.IPAddress
+	}
+
 	fmt.Println(ip)
 	country, lat, long, err := geo.GetCountry(ip)
 	if err != nil {
